@@ -19,11 +19,12 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
   <link rel="manifest" href="./assets/site.webmanifest">
   <meta name="theme-color" content="#D89A5B">
-  <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 8th Wall XRExtras -->
-  <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" async crossorigin="anonymous"></script>
+  <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
+  
+  <!-- 8th Wall XRExtras (Removed async to ensure XRExtras is loaded before runtime) -->
+  <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
 
@@ -241,27 +242,21 @@
         }
       };
 
-      // Configures 8th Wall Recording UI & Pipeline
-      const setupRecordingUI = () => {
-        if (window.XR8 && XR8.MediaRecorder) {
-          // Register the core recorder pipeline module with XR8 engine
+      // Safely register XRExtras MediaRecorder pipeline module according to 8th Wall repo spec
+      const initMediaRecorder = () => {
+        if (window.XR8 && window.XRExtras && XRExtras.MediaRecorder) {
           XR8.addCameraPipelineModules([
-            XR8.MediaRecorder.pipelineModule(),
+            XRExtras.MediaRecorder.pipelineModule(),
           ]);
-        }
-
-        if (window.XRExtras && XRExtras.MediaRecorder) {
-          // Injects pre-built shutter button, capture options & preview modal
-          XRExtras.MediaRecorder.init();
         }
       };
 
       const activateButton = () => {
         button.classList.add("active");
-        setupRecordingUI();
+        initMediaRecorder();
       };
 
-      if (window.XR8) {
+      if (window.XR8 && window.XRExtras) {
         activateButton();
       } else {
         window.addEventListener("xrloaded", activateButton);
