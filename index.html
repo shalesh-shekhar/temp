@@ -19,9 +19,11 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
   <link rel="manifest" href="./assets/site.webmanifest">
   <meta name="theme-color" content="#D89A5B">
-  
+
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
+  
+  <!-- 8th Wall XRExtras (Required for MediaRecorder UI & Preview Modals) -->
   <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
@@ -177,108 +179,15 @@
       pointer-events: none;
     }
 
-    /* Custom Media Recorder Styling */
-    .recorder-container {
-      position: fixed;
-      bottom: max(30px, env(safe-area-inset-bottom));
-      left: 50%;
-      transform: translateX(-50%);
-      width: 76px;
-      height: 76px;
-      z-index: 100000;
-      display: none;
-      opacity: 0;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.4s ease;
-      pointer-events: auto;
+    /* Customize XRExtras Record Button to match #b9fe0d theme */
+    .recorder-container #recorder-button {
+      background: #b9fe0d !important;
     }
-
-    .recorder-container.visible {
-      display: flex;
-      opacity: 1;
+    .recorder-container .progress-bar {
+      stroke: #b9fe0d !important;
     }
-
-    .style-reset {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      font: inherit;
-      color: inherit;
-      cursor: pointer;
-      outline: none;
-    }
-
-    #recorder-button {
-      position: absolute;
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      background: #b9fe0d;
-      color: transparent;
-      font-size: 0;
-      transition: transform 0.15s ease, background-color 0.2s ease, border-radius 0.2s ease;
-      z-index: 2;
-    }
-
-    #recorder-button:active {
-      transform: scale(0.92);
-    }
-
     .recorder-container.recording #recorder-button {
-      background: #ff3b30;
-      transform: scale(0.65);
-      border-radius: 8px;
-    }
-
-    .progress-container {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      transform: rotate(-90deg);
-      z-index: 1;
-    }
-
-    .progress-track {
-      fill: none;
-      stroke: rgba(255, 255, 255, 0.3);
-      stroke-width: 3;
-    }
-
-    .progress-bar {
-      fill: none;
-      stroke: #b9fe0d;
-      stroke-width: 3.5;
-      stroke-dasharray: 100.53; /* 2 * PI * r (16) = 100.53 */
-      stroke-dashoffset: 100.53;
-      transition: stroke-dashoffset 0.1s linear;
-    }
-
-    .recorder-container.recording .progress-bar {
-      stroke: #ff3b30;
-    }
-
-    .loading-circle {
-      fill: none;
-      stroke: transparent;
-      stroke-width: 3;
-    }
-
-    /* Photo Camera Flash Effect */
-    .flash-element {
-      position: fixed;
-      inset: 0;
-      background: #fff;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 200000;
-      transition: opacity 0.08s ease-out;
-    }
-
-    .flash-element.flash {
-      opacity: 1;
+      background: #ff3b30 !important;
     }
   </style>
 </head>
@@ -288,7 +197,7 @@
 
   <audio id="bg-music" src="./assets/bg-music.mp3" loop></audio>
 
-  <!-- Top Controls -->
+  <!-- Persistent AR UI Controls -->
   <a id="info-link" href="https://www.instagram.com/canikickittho" target="_blank" rel="noopener noreferrer">
     <img src="assets/Info.png" alt="Book Info">
   </a>
@@ -296,21 +205,6 @@
   <button id="music-toggle" aria-label="Toggle Music">
     <img id="music-icon" src="./assets/Music_On.png" alt="Music On">
   </button>
-
-  <!-- Custom Recorder UI -->
-  <div id="recorder" class="recorder-container">
-    <svg viewBox="0 0 38 38" class="progress-container">
-      <circle class="progress-track" r="16" cx="19" cy="19"></circle>
-      <circle id="progressBar" class="progress-bar" r="16" cx="19" cy="19"></circle>
-      <circle class="loading-circle" r="16" cx="19" cy="19"></circle>
-    </svg>
-
-    <button id="recorder-button" class="style-reset">
-      Record
-    </button>
-  </div>
-
-  <div id="flashElement" class="flash-element"></div>
 
   <!-- Splash Screen Container -->
   <div id="start-overlay">
@@ -330,17 +224,7 @@
       const musicIcon = document.getElementById("music-icon");
       const bgMusic = document.getElementById("bg-music");
 
-      const recorderContainer = document.getElementById("recorder");
-      const recorderBtn = document.getElementById("recorder-button");
-      const progressBar = document.getElementById("progressBar");
-      const flashElem = document.getElementById("flashElement");
-
       let isMusicPlaying = true;
-      let isRecording = false;
-      let holdTimer = null;
-      let pressStartTime = 0;
-      const MAX_RECORDING_MS = 30000;
-      const CIRCLE_CIRCUMFERENCE = 100.53;
 
       musicBtn.onclick = (e) => {
         e.stopPropagation();
@@ -357,108 +241,18 @@
         }
       };
 
-      // Trigger Screen Flash Effect
-      const triggerFlash = () => {
-        flashElem.classList.add("flash");
-        setTimeout(() => flashElem.classList.remove("flash"), 150);
-      };
-
-      // Set Progress Bar Offset
-      const setProgress = (ratio) => {
-        const offset = CIRCLE_CIRCUMFERENCE * (1 - ratio);
-        progressBar.style.strokeDashoffset = offset;
-      };
-
-      // Take Photo via CanvasScreenshot
-      const takePhoto = () => {
-        triggerFlash();
-        if (window.XR8 && XR8.CanvasScreenshot) {
-          XR8.CanvasScreenshot.takeScreenshot().then((data) => {
-            const img = new Image();
-            img.src = 'data:image/jpeg;base64,' + data;
-            const w = window.open("");
-            w.document.write(img.outerHTML);
-          }).catch((err) => console.error("Photo failed:", err));
-        }
-      };
-
-      // Start Recording
-      const startVideo = () => {
-        if (!window.XR8 || !XR8.MediaRecorder) return;
-        isRecording = true;
-        recorderContainer.classList.add("recording");
-
-        XR8.MediaRecorder.recordVideo({
-          onStart: () => {},
-          onStop: () => {
-            isRecording = false;
-            recorderContainer.classList.remove("recording");
-            setProgress(0);
-          },
-          onProcessFrame: ({ elapsedTimeMs }) => {
-            const ratio = Math.min(elapsedTimeMs / MAX_RECORDING_MS, 1);
-            setProgress(ratio);
-          },
-          onVideoReady: ({ videoUrl }) => {
-            window.open(videoUrl, "_blank");
-          },
-          onError: (err) => {
-            console.error("Recording error:", err);
-            isRecording = false;
-            recorderContainer.classList.remove("recording");
-            setProgress(0);
-          }
-        });
-      };
-
-      // Stop Recording
-      const stopVideo = () => {
-        if (window.XR8 && XR8.MediaRecorder && isRecording) {
-          XR8.MediaRecorder.stopRecording();
-        }
-      };
-
-      // Handle Tap / Hold logic on record button
-      recorderBtn.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        pressStartTime = Date.now();
-
-        if (isRecording) {
-          stopVideo();
-          return;
-        }
-
-        holdTimer = setTimeout(() => {
-          startVideo();
-        }, 300);
-      });
-
-      recorderBtn.addEventListener("pointerup", (e) => {
-        e.preventDefault();
-        clearTimeout(holdTimer);
-
-        if (!isRecording) {
-          const pressDuration = Date.now() - pressStartTime;
-          if (pressDuration < 300) {
-            takePhoto();
-          }
-        } else {
-          stopVideo();
-        }
-      });
-
-      // Pipeline Init
-      const initPipeline = () => {
-        if (window.XR8 && XR8.MediaRecorder) {
-          XR8.addCameraPipelineModules([
-            XR8.MediaRecorder.pipelineModule(),
-          ]);
+      // Exact 8th Wall XRExtras MediaRecorder initialization sequence
+      const initMediaRecorder = () => {
+        if (window.XRExtras && XRExtras.MediaRecorder) {
+          // Initializes the shutter button, camera pipeline module, and preview modals
+          XRExtras.MediaRecorder.initRecordButton();
+          XRExtras.MediaRecorder.initMediaPreview();
         }
       };
 
       const activateButton = () => {
         button.classList.add("active");
-        initPipeline();
+        initMediaRecorder();
       };
 
       if (window.XR8) {
@@ -484,7 +278,6 @@
 
         infoLink.classList.add("visible");
         musicBtn.classList.add("visible");
-        recorderContainer.classList.add("visible");
       };
     });
   </script>
