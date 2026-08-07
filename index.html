@@ -23,7 +23,7 @@
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 8th Wall XRExtras (Removed async to ensure XRExtras is loaded before runtime) -->
+  <!-- 8th Wall XRExtras UI Module -->
   <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
@@ -242,21 +242,24 @@
         }
       };
 
-      // Safely register XRExtras MediaRecorder pipeline module according to 8th Wall repo spec
-      const initMediaRecorder = () => {
-        if (window.XR8 && window.XRExtras && XRExtras.MediaRecorder) {
+      // Register XR8.MediaRecorder pipeline module & XRExtras UI
+      const initRecording = () => {
+        if (window.XR8 && XR8.MediaRecorder) {
           XR8.addCameraPipelineModules([
-            XRExtras.MediaRecorder.pipelineModule(),
+            XR8.MediaRecorder.pipelineModule(),
           ]);
+        }
+        if (window.XRExtras && XRExtras.MediaRecorder) {
+          XRExtras.MediaRecorder.init();
         }
       };
 
       const activateButton = () => {
         button.classList.add("active");
-        initMediaRecorder();
+        initRecording();
       };
 
-      if (window.XR8 && window.XRExtras) {
+      if (window.XR8) {
         activateButton();
       } else {
         window.addEventListener("xrloaded", activateButton);
