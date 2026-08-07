@@ -23,7 +23,7 @@
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 8th Wall XRExtras (Required for MediaRecorder UI & Preview Modals) -->
+  <!-- 8th Wall XRExtras -->
   <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
@@ -50,12 +50,12 @@
       pointer-events: auto;
     }
 
-    /* Top Left Info Button */
+    /* Top Left Info Button - Set Z-Index lower than preview modal */
     #info-link {
       position: fixed;
       top: 20px;
       left: 20px;
-      z-index: 100000;
+      z-index: 9000;
       display: none;
       opacity: 0;
       transition: opacity 0.4s ease, transform 0.2s ease;
@@ -77,12 +77,12 @@
       height: 40px;
     }
 
-    /* Top Right Music Toggle Button */
+    /* Top Right Music Toggle Button - Set Z-Index lower than preview modal */
     #music-toggle {
       position: fixed;
       top: 20px;
       right: 20px;
-      z-index: 100000;
+      z-index: 9000;
       display: none;
       opacity: 0;
       background: none;
@@ -108,7 +108,7 @@
       height: 40px;
     }
 
-    /* Floating Keyframes Animation */
+    /* Keyframes Animation for Start AR Button */
     @keyframes float {
       0% { transform: translateY(0px) scale(1); }
       50% { transform: translateY(-8px) scale(1.02); }
@@ -179,7 +179,10 @@
       pointer-events: none;
     }
 
-    /* Customize XRExtras Record Button to match #b9fe0d theme */
+    /* Override XRExtras Recording Button Theme and Z-Index Stacking */
+    .recorder-container {
+      z-index: 9500 !important;
+    }
     .recorder-container #recorder-button {
       background: #b9fe0d !important;
     }
@@ -189,15 +192,21 @@
     .recorder-container.recording #recorder-button {
       background: #ff3b30 !important;
     }
+
+    /* Ensure Preview Modal Container sits on top of everything */
+    #previewContainer {
+      z-index: 100001 !important;
+    }
   </style>
 </head>
 
 <body>
   <script src="bundle.js"></script>
 
-  <audio id="bg-music" src="./assets/bg-music.mp3" loop></audio>
+  <!-- Audio Element with crossOrigin attribute for Web Audio recording stream -->
+  <audio id="bg-music" src="./assets/bg-music.mp3" loop crossorigin="anonymous"></audio>
 
-  <!-- Persistent AR UI Controls -->
+  <!-- Top UI Controls -->
   <a id="info-link" href="https://www.instagram.com/canikickittho" target="_blank" rel="noopener noreferrer">
     <img src="assets/Info.png" alt="Book Info">
   </a>
@@ -225,7 +234,9 @@
       const bgMusic = document.getElementById("bg-music");
 
       let isMusicPlaying = true;
+      let wasMusicPlayingBeforePreview = false;
 
+      // Music Toggle logic
       musicBtn.onclick = (e) => {
         e.stopPropagation();
         if (isMusicPlaying) {
@@ -241,12 +252,38 @@
         }
       };
 
-      // Exact 8th Wall XRExtras MediaRecorder initialization sequence
+      // Handle Background Music Pausing during Video Preview Modal
+      window.addEventListener("mediarecorder-previewopened", () => {
+        wasMusicPlayingBeforePreview = isMusicPlaying;
+        if (isMusicPlaying) {
+          bgMusic.pause();
+        }
+      });
+
+      window.addEventListener("mediarecorder-previewclosed", () => {
+        if (wasMusicPlayingBeforePreview && isMusicPlaying) {
+          bgMusic.play().catch(() => { });
+        }
+      });
+
+      // Initialize XRExtras Recording Buttons, Audio Capture, and End-Card Disable Settings
       const initMediaRecorder = () => {
         if (window.XRExtras && XRExtras.MediaRecorder) {
-          // Initializes the shutter button, camera pipeline module, and preview modals
+          // ISSUE 4 FIX: Disable end card/branding watermark
+          XRExtras.MediaRecorder.configure({
+            enableEndCard: false,
+            watermarkImageUrl: null,
+          });
+
           XRExtras.MediaRecorder.initRecordButton();
           XRExtras.MediaRecorder.initMediaPreview();
+        }
+
+        if (window.XR8 && XR8.MediaRecorder) {
+          // ISSUE 2 FIX: Route background music element directly into MediaRecorder audio sources
+          XR8.MediaRecorder.configure({
+            audioSources: [bgMusic],
+          });
         }
       };
 
