@@ -13,7 +13,7 @@
   <meta itemprop="description" content="A first-of-its-kind augmented reality experience celebrating the 30th anniversary of OutKast's ATLiens, transforming public spaces into immersive journeys through Atlanta's hip-hop legacy.">
   <meta property="og:description" content="A first-of-its-kind augmented reality experience celebrating the 30th anniversary of OutKast's ATLiens, transforming public spaces into immersive journeys through Atlanta's hip-hop legacy.">
   <meta name="twitter:description" content="A first-of-its-kind augmented reality experience celebrating the 30th anniversary of OutKast's ATLiens, transforming public spaces into immersive journeys through Atlanta's hip-hop legacy.">
-  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
@@ -22,7 +22,7 @@
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" async crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 8th Wall XRExtras module required for pre-built recording UI & MediaRecorder -->
+  <!-- 8th Wall XRExtras -->
   <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" async crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
@@ -241,19 +241,8 @@
         }
       };
 
-      // 8th Wall Recording Pipeline Registration
-      const onXrPipelineReady = () => {
-        if (window.XRExtras && window.XR8) {
-          // Adds 8th Wall built-in MediaRecorder UI & logic
-          XR8.addCameraPipelineModules([
-            XRExtras.MediaRecorder.pipelineModule(),
-          ]);
-        }
-      };
-
       const activateButton = () => {
         button.classList.add("active");
-        onXrPipelineReady();
       };
 
       if (window.XR8) {
@@ -272,6 +261,16 @@
             bgMusic.play().catch(() => { });
           }
         } catch (e) { }
+
+        // Enable 8th Wall Media Recorder pipeline module
+        if (window.XR8 && XR8.MediaRecorder) {
+          XR8.addCameraPipelineModule(XR8.MediaRecorder.pipelineModule());
+        }
+
+        // Initialize XRExtras Recording UI if available
+        if (window.XRExtras && XRExtras.MediaRecorder) {
+          XRExtras.MediaRecorder.init();
+        }
 
         const overlay = document.getElementById("start-overlay");
         overlay.style.opacity = 0;
