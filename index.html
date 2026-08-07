@@ -241,8 +241,24 @@
         }
       };
 
+      // Configures 8th Wall Recording UI & Pipeline
+      const setupRecordingUI = () => {
+        if (window.XR8 && XR8.MediaRecorder) {
+          // Register the core recorder pipeline module with XR8 engine
+          XR8.addCameraPipelineModules([
+            XR8.MediaRecorder.pipelineModule(),
+          ]);
+        }
+
+        if (window.XRExtras && XRExtras.MediaRecorder) {
+          // Injects pre-built shutter button, capture options & preview modal
+          XRExtras.MediaRecorder.init();
+        }
+      };
+
       const activateButton = () => {
         button.classList.add("active");
+        setupRecordingUI();
       };
 
       if (window.XR8) {
@@ -261,16 +277,6 @@
             bgMusic.play().catch(() => { });
           }
         } catch (e) { }
-
-        // Enable 8th Wall Media Recorder pipeline module
-        if (window.XR8 && XR8.MediaRecorder) {
-          XR8.addCameraPipelineModule(XR8.MediaRecorder.pipelineModule());
-        }
-
-        // Initialize XRExtras Recording UI if available
-        if (window.XRExtras && XRExtras.MediaRecorder) {
-          XRExtras.MediaRecorder.init();
-        }
 
         const overlay = document.getElementById("start-overlay");
         overlay.style.opacity = 0;
