@@ -173,7 +173,7 @@
       pointer-events: none;
     }
 
-    /* Override XRExtras Recording Button Theme */
+    /* Custom Color Overrides */
     .recorder-container {
       z-index: 9500 !important;
     }
@@ -226,7 +226,7 @@
 
       let isMusicPlaying = true;
       let wasMusicPlayingBeforePreview = false;
-      let audioStreamTrack = null;
+      let bgAudioNode = null;
 
       musicBtn.onclick = (e) => {
         e.stopPropagation();
@@ -243,7 +243,7 @@
         }
       };
 
-      // Pause audio when preview modal opens and resume when closed
+      // Pause audio when preview modal opens & resume on close
       window.addEventListener("mediarecorder-previewopened", () => {
         wasMusicPlayingBeforePreview = isMusicPlaying;
         if (isMusicPlaying) {
@@ -257,36 +257,56 @@
         }
       });
 
-      // Photo Fallback: Fix photo capture by manually rendering screenshot if default listener stalls
-      window.addEventListener("mediarecorder-photocomplete", (e) => {
-        if (e && e.detail && e.detail.blob) {
-          // Photo capture successful
-        }
-      });
+      // 8th Wall official audio output graph callback for video recording
+      const userConfiguredAudioOutput = ({ microphoneInput, audioProcessor }) => {
+        const audioCtx = (microphoneInput && microphoneInput.context) 
+          ? microphoneInput.context 
+          : new (window.AudioContext || window.webkitAudioContext)();
 
-      const setupWebAudioStream = () => {
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const source = audioCtx.createMediaElementSource(bgMusic);
-          const destination = audioCtx.createMediaStreamDestination();
-          
-          source.connect(destination);
-          source.connect(audioCtx.destination); // Route audio to speakers
-
-          audioStreamTrack = destination.stream.getAudioTracks()[0];
-
-          // Pass the live Web Audio Stream Track into MediaRecorder
-          if (window.XR8 && XR8.MediaRecorder && audioStreamTrack) {
-            XR8.MediaRecorder.configure({
-              audioSources: [audioStreamTrack],
-            });
+        if (!bgAudioNode && bgMusic) {
+          try {
+            bgAudioNode = audioCtx.createMediaElementSource(bgMusic);
+          } catch (e) {
+            console.warn("Audio node creation warning:", e);
           }
-        } catch (err) {
-          console.warn("Audio Context setup warning:", err);
         }
+
+        if (bgAudioNode) {
+          // Connect background music to the video recorder processor
+          bgAudioNode.connect(audioProcessor);
+          // Connect background music to hardware output (device speakers)
+          bgAudioNode.connect(audioCtx.destination);
+        }
+
+        if (microphoneInput) {
+          microphoneInput.connect(audioProcessor);
+        }
+
+        return audioProcessor;
       };
 
       const initMediaRecorder = () => {
+        // Register pipeline modules: XR8.MediaRecorder + XR8.CanvasScreenshot
+        if (window.XR8) {
+          const modules = [];
+
+          if (XR8.MediaRecorder) {
+            modules.push(XR8.MediaRecorder.pipelineModule());
+
+            XR8.MediaRecorder.configure({
+              configureAudioOutput: userConfiguredAudioOutput,
+              requestMic: XR8.MediaRecorder.RequestMicOptions.AUTO,
+            });
+          }
+
+          // Register CanvasScreenshot module required for photo capture
+          if (XR8.CanvasScreenshot) {
+            modules.push(XR8.CanvasScreenshot.pipelineModule());
+          }
+
+          XR8.addCameraPipelineModules(modules);
+        }
+
         if (window.XRExtras && XRExtras.MediaRecorder) {
           XRExtras.MediaRecorder.configure({
             enableEndCard: false,
@@ -295,12 +315,6 @@
 
           XRExtras.MediaRecorder.initRecordButton();
           XRExtras.MediaRecorder.initMediaPreview();
-        }
-
-        if (window.XR8 && XR8.MediaRecorder) {
-          XR8.addCameraPipelineModules([
-            XR8.MediaRecorder.pipelineModule(),
-          ]);
         }
       };
 
@@ -317,9 +331,6 @@
 
       button.onclick = async () => {
         if (!button.classList.contains("active")) return;
-
-        // Initialize Web Audio graph upon user tap
-        setupWebAudioStream();
 
         try {
           if (isMusicPlaying) {
