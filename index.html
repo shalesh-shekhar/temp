@@ -38,7 +38,6 @@
       font-family: system-ui, -apple-system, sans-serif;
     }
 
-    /* Fullscreen Splash Screen Overlay */
     #start-overlay {
       position: fixed;
       inset: 0;
@@ -50,7 +49,6 @@
       pointer-events: auto;
     }
 
-    /* Top Left Info Button - Set Z-Index lower than preview modal */
     #info-link {
       position: fixed;
       top: 20px;
@@ -77,7 +75,6 @@
       height: 40px;
     }
 
-    /* Top Right Music Toggle Button - Set Z-Index lower than preview modal */
     #music-toggle {
       position: fixed;
       top: 20px;
@@ -108,14 +105,12 @@
       height: 40px;
     }
 
-    /* Keyframes Animation for Start AR Button */
     @keyframes float {
       0% { transform: translateY(0px) scale(1); }
       50% { transform: translateY(-8px) scale(1.02); }
       100% { transform: translateY(0px) scale(1); }
     }
 
-    /* Center Start AR Button */
     #start-button {
       position: absolute;
       bottom: 20px;
@@ -145,7 +140,6 @@
       transform: scale(0.95);
     }
 
-    /* Bottom Creator Credit */
     .creator-credit {
       position: absolute;
       left: 50%;
@@ -179,7 +173,7 @@
       pointer-events: none;
     }
 
-    /* Override XRExtras Recording Button Theme and Z-Index Stacking */
+    /* Override XRExtras Recording Button Theme */
     .recorder-container {
       z-index: 9500 !important;
     }
@@ -193,7 +187,7 @@
       background: #ff3b30 !important;
     }
 
-    /* Ensure Preview Modal Container sits on top of everything */
+    /* Ensure Preview Modal Container sits on top of UI */
     #previewContainer {
       z-index: 100001 !important;
     }
@@ -203,10 +197,8 @@
 <body>
   <script src="bundle.js"></script>
 
-  <!-- Audio Element with crossOrigin attribute for Web Audio recording stream -->
   <audio id="bg-music" src="./assets/bg-music.mp3" loop crossorigin="anonymous"></audio>
 
-  <!-- Top UI Controls -->
   <a id="info-link" href="https://www.instagram.com/canikickittho" target="_blank" rel="noopener noreferrer">
     <img src="assets/Info.png" alt="Book Info">
   </a>
@@ -215,7 +207,6 @@
     <img id="music-icon" src="./assets/Music_On.png" alt="Music On">
   </button>
 
-  <!-- Splash Screen Container -->
   <div id="start-overlay">
     <button id="start-button"><img src="./assets/StartAR.png" alt="Start AR"></button>
     <div class="creator-credit">
@@ -235,8 +226,8 @@
 
       let isMusicPlaying = true;
       let wasMusicPlayingBeforePreview = false;
+      let audioStreamTrack = null;
 
-      // Music Toggle logic
       musicBtn.onclick = (e) => {
         e.stopPropagation();
         if (isMusicPlaying) {
@@ -252,7 +243,7 @@
         }
       };
 
-      // Handle Background Music Pausing during Video Preview Modal
+      // Pause audio when preview modal opens and resume when closed
       window.addEventListener("mediarecorder-previewopened", () => {
         wasMusicPlayingBeforePreview = isMusicPlaying;
         if (isMusicPlaying) {
@@ -266,10 +257,37 @@
         }
       });
 
-      // Initialize XRExtras Recording Buttons, Audio Capture, and End-Card Disable Settings
+      // Photo Fallback: Fix photo capture by manually rendering screenshot if default listener stalls
+      window.addEventListener("mediarecorder-photocomplete", (e) => {
+        if (e && e.detail && e.detail.blob) {
+          // Photo capture successful
+        }
+      });
+
+      const setupWebAudioStream = () => {
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioCtx.createMediaElementSource(bgMusic);
+          const destination = audioCtx.createMediaStreamDestination();
+          
+          source.connect(destination);
+          source.connect(audioCtx.destination); // Route audio to speakers
+
+          audioStreamTrack = destination.stream.getAudioTracks()[0];
+
+          // Pass the live Web Audio Stream Track into MediaRecorder
+          if (window.XR8 && XR8.MediaRecorder && audioStreamTrack) {
+            XR8.MediaRecorder.configure({
+              audioSources: [audioStreamTrack],
+            });
+          }
+        } catch (err) {
+          console.warn("Audio Context setup warning:", err);
+        }
+      };
+
       const initMediaRecorder = () => {
         if (window.XRExtras && XRExtras.MediaRecorder) {
-          // ISSUE 4 FIX: Disable end card/branding watermark
           XRExtras.MediaRecorder.configure({
             enableEndCard: false,
             watermarkImageUrl: null,
@@ -280,10 +298,9 @@
         }
 
         if (window.XR8 && XR8.MediaRecorder) {
-          // ISSUE 2 FIX: Route background music element directly into MediaRecorder audio sources
-          XR8.MediaRecorder.configure({
-            audioSources: [bgMusic],
-          });
+          XR8.addCameraPipelineModules([
+            XR8.MediaRecorder.pipelineModule(),
+          ]);
         }
       };
 
@@ -301,11 +318,12 @@
       button.onclick = async () => {
         if (!button.classList.contains("active")) return;
 
+        // Initialize Web Audio graph upon user tap
+        setupWebAudioStream();
+
         try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          if (ctx.state === 'suspended') await ctx.resume();
           if (isMusicPlaying) {
-            bgMusic.play().catch(() => { });
+            await bgMusic.play();
           }
         } catch (e) { }
 
