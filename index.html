@@ -67,7 +67,7 @@
       z-index: 1;
     }
 
-    /* Sound Thunder Image */
+    /* Sound Thunder Image (Scale-only animation) */
     .thunder-img {
       position: absolute;
       inset: 0;
@@ -76,9 +76,9 @@
       object-fit: cover;
       z-index: 2;
       transform: scale(1);
-      transition: transform 0.08s ease-out, opacity 0.08s ease-out;
+      transition: transform 0.08s ease-out;
       pointer-events: none;
-      will-change: transform, opacity;
+      will-change: transform;
     }
 
     /* Top Left Info Button */
@@ -177,35 +177,6 @@
       transform: scale(0.95);
     }
 
-    /* Bottom Creator Credit */
-    .creator-credit {
-      position: absolute;
-      left: 50%;
-      bottom: max(16px, env(safe-area-inset-bottom));
-      transform: translateX(-50%);
-      z-index: 3;
-      font-family: "Nunito", sans-serif;
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-      line-height: 1;
-      color: #b9fe0d;
-      text-align: center;
-      white-space: nowrap;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-      pointer-events: auto;
-      user-select: none;
-    }
-
-    .creator-credit a {
-      color: #b9fe0d;
-      text-decoration: none;
-      transition: opacity 0.2s ease;
-    }
-
-    .creator-credit a:hover { opacity: 1; }
-    .creator-credit a:not(:hover) { opacity: 0.85; }
-
     #xr-canvas {
       position: fixed;
       inset: 0;
@@ -273,9 +244,6 @@
     <img id="thunder-img" src="./assets/Sound_thunder.png" alt="Sound Thunder" class="thunder-img">
 
     <button id="start-button" aria-label="Start AR"><img src="./assets/StartAR.png" alt="Start AR"></button>
-    <div class="creator-credit">
-      <a href="https://shaleshshekhar.in" target="_blank" rel="noopener noreferrer">WebAR by Shalesh Shekhar</a>
-    </div>
   </div>
 
   <canvas id="xr-canvas"></canvas>
@@ -296,17 +264,13 @@
       let bgAudioNode = null;
       let isThunderActive = true;
 
-      // Random Thunder Pulse Animation Logic
+      // Random Thunder Scale-Only Pulse Logic
       const runRandomThunderAnimation = () => {
         if (!isThunderActive || !thunderImg) return;
 
-        // Random scale between 1.00 and 1.05
+        // Random scale strictly between 1.00 and 1.05
         const scale = 1 + Math.random() * 0.05;
-        // Random opacity pulse between 0.6 and 1.0
-        const opacity = 0.6 + Math.random() * 0.4;
-        
         thunderImg.style.transform = `scale(${scale.toFixed(3)})`;
-        thunderImg.style.opacity = opacity.toFixed(2);
 
         // Clamped random timeout delay between 70ms and 280ms for organic thunder strikes
         const nextInterval = Math.floor(Math.random() * (280 - 70 + 1)) + 70;
@@ -419,7 +383,7 @@
       button.onclick = async () => {
         if (!button.classList.contains("active")) return;
 
-        isThunderActive = false; // Stop thunder loop
+        isThunderActive = false; // Stop thunder animation
 
         // Ensure all video elements on the page are unmuted & played
         document.querySelectorAll("video").forEach((vid) => {
