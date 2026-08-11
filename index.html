@@ -28,7 +28,6 @@
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- Fixed protocol-relative CDN URL -->
   <script src="https://cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
@@ -48,11 +47,38 @@
       position: fixed;
       inset: 0;
       z-index: 99999;
-      background: url('./assets/SplashScreen.jpg') center center / cover no-repeat;
+      background: #000;
       display: flex;
       justify-content: center;
+      align-items: center;
       transition: opacity 0.45s ease;
       pointer-events: auto;
+      overflow: hidden;
+    }
+
+    /* 100vh Splash Image */
+    .splash-img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    /* Sound Thunder Image */
+    .thunder-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 2;
+      transform: scale(1);
+      transition: transform 0.08s ease-out, opacity 0.08s ease-out;
+      pointer-events: none;
+      will-change: transform, opacity;
     }
 
     /* Top Left Info Button */
@@ -113,17 +139,18 @@
       height: 40px;
     }
 
-    /* Floating Keyframes Animation */
-    @keyframes float {
-      0% { transform: translateY(0px) scale(1); }
-      50% { transform: translateY(-8px) scale(1.02); }
-      100% { transform: translateY(0px) scale(1); }
+    /* Pulse Keyframes Animation for Start AR Button (100% to 105%) */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
     }
 
-    /* Center Start AR Button */
+    /* Center Start AR Button positioned 10vh from bottom */
     #start-button {
       position: absolute;
-      bottom: 20px;
+      bottom: 10vh;
+      z-index: 3;
       background: none;
       border: none;
       padding: 0;
@@ -142,7 +169,7 @@
     #start-button.active {
       pointer-events: auto;
       opacity: 1;
-      animation: float 2.4s ease-in-out infinite;
+      animation: pulse 1.8s ease-in-out infinite;
     }
 
     #start-button:active {
@@ -156,6 +183,7 @@
       left: 50%;
       bottom: max(16px, env(safe-area-inset-bottom));
       transform: translateX(-50%);
+      z-index: 3;
       font-family: "Nunito", sans-serif;
       font-size: 10px;
       font-weight: 500;
@@ -241,6 +269,9 @@
 
   <!-- Splash Screen Container -->
   <div id="start-overlay">
+    <img src="./assets/SplashScreen.jpg" alt="Splash Background" class="splash-img">
+    <img id="thunder-img" src="./assets/Sound_thunder.png" alt="Sound Thunder" class="thunder-img">
+
     <button id="start-button" aria-label="Start AR"><img src="./assets/StartAR.png" alt="Start AR"></button>
     <div class="creator-credit">
       <a href="https://shaleshshekhar.in" target="_blank" rel="noopener noreferrer">WebAR by Shalesh Shekhar</a>
@@ -258,10 +289,31 @@
       const musicBtn = document.getElementById("music-toggle");
       const musicIcon = document.getElementById("music-icon");
       const bgMusic = document.getElementById("bg-music");
+      const thunderImg = document.getElementById("thunder-img");
 
       let isMusicPlaying = true;
       let wasMusicPlayingBeforePreview = false;
       let bgAudioNode = null;
+      let isThunderActive = true;
+
+      // Random Thunder Pulse Animation Logic
+      const runRandomThunderAnimation = () => {
+        if (!isThunderActive || !thunderImg) return;
+
+        // Random scale between 1.00 and 1.05
+        const scale = 1 + Math.random() * 0.05;
+        // Random opacity pulse between 0.6 and 1.0
+        const opacity = 0.6 + Math.random() * 0.4;
+        
+        thunderImg.style.transform = `scale(${scale.toFixed(3)})`;
+        thunderImg.style.opacity = opacity.toFixed(2);
+
+        // Clamped random timeout delay between 70ms and 280ms for organic thunder strikes
+        const nextInterval = Math.floor(Math.random() * (280 - 70 + 1)) + 70;
+        setTimeout(runRandomThunderAnimation, nextInterval);
+      };
+
+      runRandomThunderAnimation();
 
       // Music Toggle Control
       musicBtn.onclick = (e) => {
@@ -319,7 +371,7 @@
         return audioProcessor;
       };
 
-      // Prevent Duplicate Pipeline Modules
+      // Register MediaRecorder pipeline module and set Capture Mode to Fixed (Tap to Start / Tap to Stop)
       const initMediaRecorder = () => {
         if (window.XR8) {
           const modules = [];
@@ -331,10 +383,6 @@
               configureAudioOutput: userConfiguredAudioOutput,
               requestMic: XR8.MediaRecorder.RequestMicOptions.AUTO,
             });
-          }
-
-          if (XR8.CanvasScreenshot && (!XR8.hasCameraPipelineModule || !XR8.hasCameraPipelineModule('canvasscreenshot'))) {
-            modules.push(XR8.CanvasScreenshot.pipelineModule());
           }
 
           if (modules.length > 0) {
@@ -350,6 +398,9 @@
 
           XRExtras.MediaRecorder.initRecordButton();
           XRExtras.MediaRecorder.initMediaPreview();
+
+          // Set Capture Mode to 'fixed' for Tap-to-Start / Tap-to-Stop Video Recording
+          XRExtras.MediaRecorder.setCaptureMode('fixed');
         }
       };
 
@@ -368,7 +419,9 @@
       button.onclick = async () => {
         if (!button.classList.contains("active")) return;
 
-        // Ensure all video elements on the page (both custom and 8th Wall internal) are unmuted & played
+        isThunderActive = false; // Stop thunder loop
+
+        // Ensure all video elements on the page are unmuted & played
         document.querySelectorAll("video").forEach((vid) => {
           vid.muted = true;
           vid.play().catch(() => {});
