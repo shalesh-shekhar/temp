@@ -20,11 +20,16 @@
   <link rel="manifest" href="./assets/site.webmanifest">
   <meta name="theme-color" content="#D89A5B">
 
+  <!-- Added Font to fix font fallbacks -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500&display=swap" rel="stylesheet">
+
   <script crossorigin="anonymous" src="./external/runtime/runtime.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
   
-  <!-- 8th Wall XRExtras -->
-  <script src="//cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
+  <!-- Fixed protocol-relative CDN URL -->
+  <script src="https://cdn.8thwall.com/web/xrextras/xrextras.js" crossorigin="anonymous"></script>
 
   <meta property="og:image" content="./assets/preview.jpg">
 
@@ -38,6 +43,7 @@
       font-family: system-ui, -apple-system, sans-serif;
     }
 
+    /* Fullscreen Splash Screen Overlay */
     #start-overlay {
       position: fixed;
       inset: 0;
@@ -49,6 +55,7 @@
       pointer-events: auto;
     }
 
+    /* Top Left Info Button */
     #info-link {
       position: fixed;
       top: 20px;
@@ -75,6 +82,7 @@
       height: 40px;
     }
 
+    /* Top Right Music Toggle Button */
     #music-toggle {
       position: fixed;
       top: 20px;
@@ -105,12 +113,14 @@
       height: 40px;
     }
 
+    /* Floating Keyframes Animation */
     @keyframes float {
       0% { transform: translateY(0px) scale(1); }
       50% { transform: translateY(-8px) scale(1.02); }
       100% { transform: translateY(0px) scale(1); }
     }
 
+    /* Center Start AR Button */
     #start-button {
       position: absolute;
       bottom: 20px;
@@ -140,6 +150,7 @@
       transform: scale(0.95);
     }
 
+    /* Bottom Creator Credit */
     .creator-credit {
       position: absolute;
       left: 50%;
@@ -170,10 +181,10 @@
     #xr-canvas {
       position: fixed;
       inset: 0;
-      pointer-events: none;
+      pointer-events: auto;
     }
 
-    /* Custom Color Overrides */
+    /* Custom Theme Overrides */
     .recorder-container {
       z-index: 9500 !important;
     }
@@ -187,25 +198,40 @@
       background: #ff3b30 !important;
     }
 
-    /* Ensure Preview Modal Container sits on top of UI */
+    /* Preview Modal Layering */
     #previewContainer {
       z-index: 100001 !important;
     }
-    /* Override 8th Wall Share/View Action Button Color */
+
     #previewContainer #actionButton {
       background-color: #b9fe0d !important;
-      color: #000000 !important; /* Dark text for high contrast on lime green */
+      color: #000000 !important;
       font-weight: 700;
+    }
+
+    /* Keep active in DOM render tree without showing on screen */
+    .ar-video-asset {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      z-index: -1;
     }
   </style>
 </head>
 
 <body>
-  <script src="bundle.js"></script>
-
+  <!-- Background Music Element -->
   <audio id="bg-music" src="./assets/bg-music.mp3" loop crossorigin="anonymous"></audio>
 
-  <a id="info-link" href="https://www.instagram.com/canikickittho" target="_blank" rel="noopener noreferrer">
+  <!-- AR Target Video Asset -->
+  <video id="ar-video" class="ar-video-asset" src="assets/arvideos/Artwork.mp4" playsinline webkit-playsinline loop muted crossorigin="anonymous" preload="auto"></video>
+
+  <!-- Top UI Controls -->
+  <a id="info-link" href="https://www.instagram.com/canikickittho" target="_blank" rel="noopener noreferrer" aria-label="Book Info">
     <img src="assets/Info.png" alt="Book Info">
   </a>
 
@@ -213,14 +239,17 @@
     <img id="music-icon" src="./assets/Music_On.png" alt="Music On">
   </button>
 
+  <!-- Splash Screen Container -->
   <div id="start-overlay">
-    <button id="start-button"><img src="./assets/StartAR.png" alt="Start AR"></button>
+    <button id="start-button" aria-label="Start AR"><img src="./assets/StartAR.png" alt="Start AR"></button>
     <div class="creator-credit">
       <a href="https://shaleshshekhar.in" target="_blank" rel="noopener noreferrer">WebAR by Shalesh Shekhar</a>
     </div>
   </div>
 
   <canvas id="xr-canvas"></canvas>
+
+  <script src="bundle.js" defer></script>
 
   <script>
     window.addEventListener("load", () => {
@@ -234,6 +263,7 @@
       let wasMusicPlayingBeforePreview = false;
       let bgAudioNode = null;
 
+      // Music Toggle Control
       musicBtn.onclick = (e) => {
         e.stopPropagation();
         if (isMusicPlaying) {
@@ -263,7 +293,7 @@
         }
       });
 
-      // 8th Wall official audio output graph callback for video recording
+      // Configure background audio stream for video recording
       const userConfiguredAudioOutput = ({ microphoneInput, audioProcessor }) => {
         const audioCtx = (microphoneInput && microphoneInput.context) 
           ? microphoneInput.context 
@@ -278,9 +308,7 @@
         }
 
         if (bgAudioNode) {
-          // Connect background music to the video recorder processor
           bgAudioNode.connect(audioProcessor);
-          // Connect background music to hardware output (device speakers)
           bgAudioNode.connect(audioCtx.destination);
         }
 
@@ -291,12 +319,12 @@
         return audioProcessor;
       };
 
+      // Prevent Duplicate Pipeline Modules
       const initMediaRecorder = () => {
-        // Register pipeline modules: XR8.MediaRecorder + XR8.CanvasScreenshot
         if (window.XR8) {
           const modules = [];
 
-          if (XR8.MediaRecorder) {
+          if (XR8.MediaRecorder && (!XR8.hasCameraPipelineModule || !XR8.hasCameraPipelineModule('mediarecorder'))) {
             modules.push(XR8.MediaRecorder.pipelineModule());
 
             XR8.MediaRecorder.configure({
@@ -305,12 +333,13 @@
             });
           }
 
-          // Register CanvasScreenshot module required for photo capture
-          if (XR8.CanvasScreenshot) {
+          if (XR8.CanvasScreenshot && (!XR8.hasCameraPipelineModule || !XR8.hasCameraPipelineModule('canvasscreenshot'))) {
             modules.push(XR8.CanvasScreenshot.pipelineModule());
           }
 
-          XR8.addCameraPipelineModules(modules);
+          if (modules.length > 0) {
+            XR8.addCameraPipelineModules(modules);
+          }
         }
 
         if (window.XRExtras && XRExtras.MediaRecorder) {
@@ -335,15 +364,24 @@
         window.addEventListener("xrloaded", activateButton);
       }
 
+      // Start AR Session Handler
       button.onclick = async () => {
         if (!button.classList.contains("active")) return;
 
+        // Ensure all video elements on the page (both custom and 8th Wall internal) are unmuted & played
+        document.querySelectorAll("video").forEach((vid) => {
+          vid.muted = true;
+          vid.play().catch(() => {});
+        });
+
+        // Resume Audio Context and start music playback
         try {
           if (isMusicPlaying) {
             await bgMusic.play();
           }
         } catch (e) { }
 
+        // Fade out splash screen overlay
         const overlay = document.getElementById("start-overlay");
         overlay.style.opacity = 0;
         setTimeout(() => overlay.remove(), 450);
